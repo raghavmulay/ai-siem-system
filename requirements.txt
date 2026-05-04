@@ -29,3 +29,4 @@ pymongo
 flask-cors
 Flask-JWT-Extended
 bcrypt
+gunicorn
