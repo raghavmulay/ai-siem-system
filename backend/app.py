@@ -8,12 +8,15 @@ from backend.routes.alerts import alerts_bp
 app = Flask(__name__)
 CORS(app)
 
-# Verify DB connection
+# Verify DB connection + ensure indexes
 try:
-    get_db().command("ping")
-    print("✅ MongoDB connected")
+    db = get_db()
+    db.command("ping")
+    # Compound index: speeds up intelligence.detect_frequency() window queries
+    db["logs"].create_index([("timestamp", -1), ("attack_type", 1)], background=True)
+    print("MongoDB connected & indexes ensured")
 except Exception as e:
-    print(f"⚠️ MongoDB connection failed: {e}")
+    print(f"MongoDB connection failed: {e}")
 
 # ✅ Register ALL blueprints BEFORE running app
 app.register_blueprint(predict_bp)

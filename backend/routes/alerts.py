@@ -1,16 +1,17 @@
 from flask import Blueprint, jsonify
-from backend.config.db_config import get_db
+from backend.services.db_service import get_alerts
 
 alerts_bp = Blueprint("alerts", __name__)
 
+
 @alerts_bp.route("/alerts", methods=["GET"])
-def get_alerts():
-    db = get_db()
-    alerts_collection = db["alerts"]
-
-    alerts = list(alerts_collection.find().sort("timestamp", -1).limit(10))
-
-    for alert in alerts:
-        alert["_id"] = str(alert["_id"])
-
-    return jsonify(alerts)
+def fetch_alerts():
+    """
+    Returns alerts pre-sorted:
+      1. severity  CRITICAL > HIGH > MEDIUM > LOW
+      2. confidence descending
+    """
+    try:
+        return jsonify(get_alerts(limit=20)), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

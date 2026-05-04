@@ -70,22 +70,32 @@ function MetricCard({ icon, label, value, accent }) {
   );
 }
 
+const SEVERITY_STYLES = {
+  CRITICAL: { bg: "rgba(220,38,38,0.25)",   color: "#fca5a5", border: "#dc2626" },
+  HIGH:     { bg: "rgba(239,68,68,0.2)",    color: "#fca5a5", border: "#ef4444" },
+  MEDIUM:   { bg: "rgba(245,158,11,0.2)",   color: "#fcd34d", border: "#f59e0b" },
+  LOW:      { bg: "rgba(34,197,94,0.15)",   color: "#86efac", border: "#22c55e" },
+};
+
 function AlertBadge({ severity }) {
-  const isHigh = severity === "HIGH";
+  const s = SEVERITY_STYLES[severity] || SEVERITY_STYLES.LOW;
   return (
     <span
       className="alert-badge"
       style={{
-        background: isHigh ? "rgba(239,68,68,0.2)" : "rgba(245,158,11,0.2)",
-        color: isHigh ? "#fca5a5" : "#fcd34d",
-        border: `1px solid ${isHigh ? "#ef4444" : "#f59e0b"}`,
-        padding: "4px 8px",
+        background: s.bg,
+        color: s.color,
+        border: `1px solid ${s.border}`,
+        padding: "4px 10px",
         borderRadius: "4px",
-        fontSize: "0.8rem",
+        fontSize: "0.78rem",
         fontWeight: "bold",
-        textTransform: "uppercase"
+        textTransform: "uppercase",
+        letterSpacing: "0.5px",
+        whiteSpace: "nowrap",
       }}
     >
+      {severity === "CRITICAL" ? "🚨 " : severity === "HIGH" ? "🔴 " : severity === "MEDIUM" ? "⚠️ " : "✅ "}
       {severity}
     </span>
   );
@@ -167,9 +177,10 @@ function Dashboard() {
   const displayLogs = logs.slice(-100).reverse(); // Latest 100 max, newest first
   const totalLogs = logs.length;
   // Anomaly Rate: Count logs where anomaly is 1 / Total Logs
-  const anomalyCount = logs.filter((l) => l.anomaly === -1).length;
+  // anomaly is now a bool (true = anomaly) after Phase 3 fix
+  const anomalyCount = logs.filter((l) => l.anomaly === true || l.anomaly === -1).length;
   const anomalyRate = totalLogs > 0 ? ((anomalyCount / totalLogs) * 100).toFixed(1) : "0.0";
-  const highAlerts = alerts.filter((a) => a.severity === "HIGH").length;
+  const highAlerts = alerts.filter((a) => a.severity === "HIGH" || a.severity === "CRITICAL").length;
   const topAttack = getMostFrequentAttack(logs);
 
   /* ── System Status Logic ── */
@@ -177,11 +188,12 @@ function Dashboard() {
   let statusColor = "#22c55e";
   let statusBg = "rgba(34,197,94,0.1)";
 
-  if (highAlerts >= 3) {
+  const criticalAlerts = alerts.filter((a) => a.severity === "CRITICAL").length;
+  if (criticalAlerts >= 1 || highAlerts >= 3) {
     systemStatus = "CRITICAL";
     statusColor = "#ef4444";
     statusBg = "rgba(239,68,68,0.15)";
-  } else if (parseFloat(anomalyRate) > 20) {
+  } else if (parseFloat(anomalyRate) > 20 || highAlerts >= 1) {
     systemStatus = "WARNING";
     statusColor = "#f59e0b";
     statusBg = "rgba(245,158,11,0.15)";
@@ -190,21 +202,24 @@ function Dashboard() {
   /* ── Chart Data (Anomaly Trend: Oldest to Newest, max 50 for readability) ── */
   const chartData = logs.slice(-50).map((l, i) => ({
     index: i + 1,
-    anomaly: l.anomaly === -1 ? 1 : 0,
+    // support both bool (new) and -1/1 (legacy)
+    anomaly: (l.anomaly === true || l.anomaly === -1) ? 1 : 0,
     timeLabel: new Date(l.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })
   }));
 
   /* ── Attack Distribution Chart Data ── */
   const attackFreq = {};
   logs.forEach(l => {
-    if (l.attack_type && l.attack_type !== "Unknown" && l.attack_type !== -1) {
-      attackFreq[l.attack_type] = (attackFreq[l.attack_type] || 0) + 1;
+    const at = l.attack_type;
+    if (at && at !== "Unknown" && at !== -1 && at !== "Normal") {
+      attackFreq[at] = (attackFreq[at] || 0) + 1;
     }
   });
+  // attack_type is now a decoded string — use it directly
   const attackChartData = Object.entries(attackFreq)
-    .map(([type, count]) => ({ type: `Type ${type}`, count }))
+    .map(([type, count]) => ({ type, count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 10); // top 10 attack types
+    .slice(0, 10);
 
   /* ── Latest Alerts ── */
   const recentAlerts = alerts.slice(0, 5);
@@ -318,31 +333,51 @@ function Dashboard() {
           ) : (
             <div className="alerts-list" style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
               {recentAlerts.map((a, idx) => {
-                let messageToDisplay = a.message;
-                if (a.attack_type && a.confidence) {
-                  messageToDisplay = `Attack Type ${a.attack_type} detected (confidence: ${Number(a.confidence).toFixed(2)})`;
-                }
+                const sStyle = SEVERITY_STYLES[a.severity] || SEVERITY_STYLES.LOW;
+                // Use reason (Phase 4) if available, else fall back to legacy message
+                const message = a.reason
+                  || a.message
+                  || (a.attack_type
+                      ? `${a.attack_type} detected (confidence: ${Number(a.confidence).toFixed(2)})`
+                      : "Anomaly detected");
 
                 return (
                   <div
                     key={a._id || `alert-${idx}`}
                     className="alert-row log-row-anim"
                     style={{
-                      padding: "16px",
+                      padding: "14px 16px",
                       borderRadius: "8px",
                       display: "flex",
                       justifyContent: "space-between",
-                      alignItems: "center",
-                      background: a.severity === "HIGH" ? "rgba(239,68,68,0.08)" : "rgba(245,158,11,0.08)",
-                      borderLeft: `5px solid ${a.severity === "HIGH" ? "#ef4444" : "#f59e0b"}`,
+                      alignItems: "flex-start",
+                      gap: "12px",
+                      background: `${sStyle.bg}`,
+                      borderLeft: `5px solid ${sStyle.border}`,
                       boxShadow: "0 2px 4px rgba(0,0,0,0.2)"
                     }}
                   >
-                    <div style={{ display: "flex", alignItems: "center", gap: "14px", flex: 1 }}>
-                      <AlertBadge severity={a.severity} />
-                      <span className="alert-message" style={{ color: "#f8fafc", fontWeight: "500" }}>{messageToDisplay}</span>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "6px", flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                        <AlertBadge severity={a.severity} />
+                        {a.attack_type && (
+                          <span style={{ color: "#cbd5e1", fontSize: "0.85rem", fontWeight: "600" }}>
+                            {a.attack_type}
+                          </span>
+                        )}
+                        {a.confidence != null && (
+                          <span style={{ color: "#94a3b8", fontSize: "0.8rem" }}>
+                            conf: <span style={{ color: sStyle.color, fontWeight: "bold" }}>{Number(a.confidence).toFixed(2)}</span>
+                          </span>
+                        )}
+                      </div>
+                      <span className="alert-message" style={{ color: "#cbd5e1", fontSize: "0.88rem", lineHeight: "1.4" }}>
+                        {message}
+                      </span>
                     </div>
-                    <span className="alert-time" style={{ color: "#94a3b8", fontSize: "0.85rem", whiteSpace: "nowrap" }}>{formatTime(a.timestamp)}</span>
+                    <span className="alert-time" style={{ color: "#64748b", fontSize: "0.82rem", whiteSpace: "nowrap", paddingTop: "2px" }}>
+                      {formatTime(a.timestamp)}
+                    </span>
                   </div>
                 );
               })}
@@ -424,14 +459,16 @@ function Dashboard() {
                   <th style={{ padding: "14px 16px", fontWeight: "600" }}>Log ID</th>
                   <th style={{ padding: "14px 16px", fontWeight: "600" }}>Status</th>
                   <th style={{ padding: "14px 16px", fontWeight: "600" }}>Attack Type</th>
+                  <th style={{ padding: "14px 16px", fontWeight: "600" }}>Severity</th>
                   <th style={{ padding: "14px 16px", fontWeight: "600" }}>Confidence</th>
                   <th style={{ padding: "14px 16px", fontWeight: "600" }}>Timestamp</th>
                 </tr>
               </thead>
               <tbody>
                 {displayLogs.map((log, idx) => {
-                  const isAnomaly = log.anomaly === -1;
+                  const isAnomaly = log.anomaly === true || log.anomaly === -1;
                   const displayIndex = totalLogs - idx;
+                  const sev = log.severity || (isAnomaly ? "HIGH" : "LOW");
                   return (
                     <tr
                       key={log._id || `log-${displayIndex}`}
@@ -462,7 +499,12 @@ function Dashboard() {
                           {isAnomaly ? "⚠️ Anomaly" : "✔ Normal"}
                         </span>
                       </td>
-                      <td style={{ padding: "14px 16px", color: "#e2e8f0", fontWeight: "500" }}>{log.attack_type || "—"}</td>
+                      <td style={{ padding: "14px 16px", color: "#e2e8f0", fontWeight: "500" }}>
+                        {log.attack_type || "—"}
+                      </td>
+                      <td style={{ padding: "12px 16px" }}>
+                        <AlertBadge severity={sev} />
+                      </td>
                       <td style={{ padding: "14px 16px", color: "#e2e8f0" }}>
                         {log.confidence != null ? (
                           <span style={{ color: log.confidence > 0.9 ? "#ef4444" : log.confidence > 0.6 ? "#f59e0b" : "#22c55e" }}>
