@@ -1,18 +1,89 @@
 from datetime import datetime, timedelta
+from collections import defaultdict
 
 
 # ── Severity Priority Map (used for sorting) ──────────────────────────────────
 SEVERITY_ORDER = {"CRITICAL": 4, "HIGH": 3, "MEDIUM": 2, "LOW": 1}
 
+# ── Known multi-step attack patterns ─────────────────────────────────────────
+# Each pattern: (ordered list of attack types, label, severity)
+ATTACK_PATTERNS = [
+    (["portsweep", "neptune"],          "Recon → DoS",           "CRITICAL"),
+    (["portsweep", "smurf"],            "Recon → Flood",         "CRITICAL"),
+    (["portsweep", "back"],             "Recon → Exploit",       "CRITICAL"),
+    (["portsweep", "teardrop"],         "Recon → Fragmentation", "HIGH"),
+    (["satan",     "neptune"],          "Probe → DoS",           "CRITICAL"),
+    (["satan",     "smurf"],            "Probe → Flood",         "CRITICAL"),
+    (["satan",     "back"],             "Probe → Exploit",       "HIGH"),
+    (["nmap",      "neptune"],          "Scan → DoS",            "HIGH"),
+    (["nmap",      "smurf"],            "Scan → Flood",          "HIGH"),
+    (["neptune",   "smurf"],            "DoS Escalation",        "CRITICAL"),
+    (["ipsweep",   "portsweep", "neptune"], "Full Recon → DoS", "CRITICAL"),
+]
+
+
+def detect_attack_chains(db, window_minutes: int = 10) -> list:
+    """
+    Scan the last `window_minutes` of anomalous logs and detect
+    coordinated multi-step attack patterns.
+    Returns a list of chain dicts.
+    """
+    since = datetime.utcnow() - timedelta(minutes=window_minutes)
+    logs = list(db["logs"].find(
+        {"anomaly": True, "timestamp": {"$gte": since}},
+        {"attack_type": 1, "timestamp": 1, "confidence": 1, "_id": 0}
+    ).sort("timestamp", 1))
+
+    # Collect ordered unique attack types seen in the window
+    seen_types = list(dict.fromkeys(
+        l["attack_type"].lower() for l in logs if l.get("attack_type")
+    ))
+
+    chains = []
+    for pattern, label, severity in ATTACK_PATTERNS:
+        # Check if every step in the pattern appears in order
+        idx = 0
+        matched_steps = []
+        for step in pattern:
+            try:
+                pos = seen_types.index(step, idx)
+                matched_steps.append(seen_types[pos])
+                idx = pos + 1
+            except ValueError:
+                break
+        else:
+            # All steps matched
+            # Collect timestamps for matched attack types
+            step_set = set(pattern)
+            involved = [
+                {"attack_type": l["attack_type"],
+                 "timestamp":   l["timestamp"].isoformat() + "Z",
+                 "confidence":  round(l.get("confidence", 0.0), 3)}
+                for l in logs if l.get("attack_type", "").lower() in step_set
+            ]
+            chains.append({
+                "pattern":    label,
+                "steps":      pattern,
+                "severity":   severity,
+                "log_count":  len(involved),
+                "first_seen": involved[0]["timestamp"] if involved else None,
+                "last_seen":  involved[-1]["timestamp"] if involved else None,
+                "logs":       involved[:20],   # cap at 20 for response size
+            })
+
+    return chains
+
 
 def detect_frequency(db, attack_type: str) -> int:
     """
-    Count how many times attack_type appeared in the last 5 minutes.
-    Returns an integer count.
+    Count anomalous logs for this attack_type in the last 5 minutes.
+    Uses case-insensitive regex to handle label casing differences.
     """
+    import re
     five_min_ago = datetime.utcnow() - timedelta(minutes=5)
     count = db["logs"].count_documents({
-        "attack_type": attack_type,
+        "anomaly": True,
+        "attack_type": {"$regex": f"^{re.escape(attack_type)}$", "$options": "i"},
         "timestamp": {"$gte": five_min_ago}
     })
     return count
@@ -28,7 +99,7 @@ def calculate_severity(anomaly: bool, confidence: float, frequency: int) -> str:
     """
     if not anomaly:
         return "LOW"
-    if frequency >= 3:
+    if frequency >= 2:
         return "CRITICAL"
     if confidence >= 0.6:
         return "HIGH"

@@ -131,10 +131,12 @@ function CustomTooltip({ active, payload, label }) {
 /* ─────────────────────────────────────────────
    MAIN DASHBOARD
 ───────────────────────────────────────────── */
-function Dashboard() {
+function Dashboard({ role = "admin", onLogout }) {
   const [logs, setLogs] = useState([]);
   const [alerts, setAlerts] = useState([]);
+  const [attackChains, setAttackChains] = useState([]);
   const [lastRefresh, setLastRefresh] = useState(null);
+  const [clearing, setClearing] = useState(false);
 
   // Real-time & Error State Handling
   const [loading, setLoading] = useState(true);
@@ -144,18 +146,21 @@ function Dashboard() {
   const fetchData = async () => {
     setIsUpdating(true);
     try {
-      const [logsRes, alertsRes] = await Promise.all([
+      const [logsRes, alertsRes, chainsRes] = await Promise.all([
         fetch("http://127.0.0.1:5000/logs"),
         fetch("http://127.0.0.1:5000/alerts"),
+        fetch("http://127.0.0.1:5000/attack-chains"),
       ]);
 
       if (!logsRes.ok || !alertsRes.ok) throw new Error("API completely unresponsive.");
 
       const logsData = await logsRes.json();
       const alertsData = await alertsRes.json();
+      const chainsData = chainsRes.ok ? await chainsRes.json() : { chains: [] };
 
       setLogs(logsData);
       setAlerts(alertsData);
+      setAttackChains(chainsData.chains || []);
       setLastRefresh(new Date());
       setErrorMsg(null);
     } catch (err) {
@@ -167,6 +172,21 @@ function Dashboard() {
     }
   };
 
+  const clearLogs = async () => {
+    if (!window.confirm("Clear all logs and alerts?")) return;
+    setClearing(true);
+    try {
+      await fetch("http://127.0.0.1:5000/clear", { method: "DELETE" });
+      setLogs([]);
+      setAlerts([]);
+      setAttackChains([]);
+    } catch (err) {
+      console.error("Clear failed:", err);
+    } finally {
+      setClearing(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
     const interval = setInterval(fetchData, 3000);
@@ -174,7 +194,7 @@ function Dashboard() {
   }, []);
 
   /* ── Derived Metrics & Data Validation ── */
-  const displayLogs = logs.slice(-100).reverse(); // Latest 100 max, newest first
+  const displayLogs = logs.slice(0, 100); // Latest 100, newest first (backend already sorts desc)
   const totalLogs = logs.length;
   // Anomaly Rate: Count logs where anomaly is 1 / Total Logs
   // anomaly is now a bool (true = anomaly) after Phase 3 fix
@@ -290,6 +310,15 @@ function Dashboard() {
           </div>
         </div>
         <div className="header-right" style={{ display: "flex", alignItems: "center", gap: "16px" }}>
+          <span style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "6px", padding: "6px 12px", color: "#6366f1", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
+            👤 {role}
+          </span>
+          <button onClick={onLogout} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #334155", background: "transparent", color: "#94a3b8", cursor: "pointer", fontSize: "0.9rem", fontWeight: "600" }}>
+            Logout
+          </button>
+          <button onClick={clearLogs} disabled={clearing} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #ef4444", background: "transparent", color: clearing ? "#64748b" : "#ef4444", cursor: clearing ? "not-allowed" : "pointer", fontSize: "0.9rem", fontWeight: "600" }}>
+            {clearing ? "Clearing..." : "🗑 Clear Logs"}
+          </button>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
             <span className="live-dot" style={{ width: "10px", height: "10px", background: "#ef4444", borderRadius: "50%", display: "inline-block", boxShadow: "0 0 8px #ef4444" }} />
             <span className="live-label" style={{ color: "#ef4444", fontWeight: "bold", letterSpacing: "1px" }}>LIVE</span>
@@ -438,7 +467,59 @@ function Dashboard() {
         </div>
       </section>
 
-      {/* ── SECTION 4: LOGS TABLE ── */}
+      {/* ── SECTION 4: ATTACK CHAINS ── */}
+      <section className="section" style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: "12px", padding: "24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
+          <h2 style={{ margin: 0, color: "#f8fafc", fontSize: "1.3rem" }}>🔗 Attack Chains</h2>
+          <span style={{ background: "#1e293b", padding: "6px 12px", borderRadius: "6px", fontSize: "0.85rem", color: "#94a3b8", fontWeight: "600" }}>
+            Last 10 min · {attackChains.length} pattern{attackChains.length !== 1 ? "s" : ""} detected
+          </span>
+        </div>
+
+        {attackChains.length === 0 ? (
+          <div style={{ color: "#22c55e", textAlign: "center", padding: "40px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
+            <span style={{ fontSize: "3rem" }}>🛡️</span>
+            <span style={{ fontWeight: "bold", fontSize: "1.1rem", color: "#86efac" }}>No coordinated attacks detected</span>
+            <span style={{ color: "#94a3b8", fontSize: "0.9rem" }}>No multi-step patterns found in the last 10 minutes</span>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+            {attackChains.map((chain, idx) => {
+              const sStyle = SEVERITY_STYLES[chain.severity] || SEVERITY_STYLES.LOW;
+              return (
+                <div key={idx} style={{ padding: "16px", borderRadius: "8px", background: sStyle.bg, borderLeft: `5px solid ${sStyle.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "8px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap" }}>
+                      <AlertBadge severity={chain.severity} />
+                      <span style={{ color: "#f8fafc", fontWeight: "700", fontSize: "1rem" }}>{chain.pattern}</span>
+                    </div>
+                    <span style={{ color: "#94a3b8", fontSize: "0.82rem", whiteSpace: "nowrap" }}>
+                      {chain.log_count} log{chain.log_count !== 1 ? "s" : ""} involved
+                    </span>
+                  </div>
+                  <div style={{ marginTop: "10px", display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                    {chain.steps.map((step, si) => (
+                      <span key={si} style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ background: "rgba(99,102,241,0.2)", border: "1px solid #6366f1", color: "#a5b4fc", padding: "3px 10px", borderRadius: "4px", fontSize: "0.82rem", fontWeight: "600", textTransform: "uppercase" }}>
+                          {step}
+                        </span>
+                        {si < chain.steps.length - 1 && <span style={{ color: "#64748b", fontSize: "1rem" }}>→</span>}
+                      </span>
+                    ))}
+                  </div>
+                  {chain.first_seen && (
+                    <div style={{ marginTop: "8px", color: "#64748b", fontSize: "0.8rem" }}>
+                      {formatTime(chain.first_seen)} → {formatTime(chain.last_seen)}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── SECTION 5: LOGS TABLE ── */}
       <section className="section" style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: "12px", padding: "24px", overflow: "hidden" }}>
         <div className="section-header-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "20px" }}>
           <h2 className="section-title" style={{ margin: 0, color: "#f8fafc", fontSize: "1.3rem" }}>🗒️ Log Entries</h2>
@@ -467,7 +548,7 @@ function Dashboard() {
               <tbody>
                 {displayLogs.map((log, idx) => {
                   const isAnomaly = log.anomaly === true || log.anomaly === -1;
-                  const displayIndex = totalLogs - idx;
+                  const displayIndex = idx + 1;
                   const sev = log.severity || (isAnomaly ? "HIGH" : "LOW");
                   return (
                     <tr

@@ -1,11 +1,16 @@
 from flask import Flask
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager # type: ignore
 from backend.routes.predict import predict_bp
 from backend.config.db_config import get_db
 from backend.routes.logs import logs_bp
 from backend.routes.alerts import alerts_bp
+from backend.routes.auth import auth_bp, seed_admin
+from backend.routes.attack_chains import attack_chains_bp
 
 app = Flask(__name__)
+app.config["JWT_SECRET_KEY"] = "siem-secret-key-change-in-prod"
+JWTManager(app)
 CORS(app)
 
 # Verify DB connection + ensure indexes
@@ -19,9 +24,12 @@ except Exception as e:
     print(f"MongoDB connection failed: {e}")
 
 # ✅ Register ALL blueprints BEFORE running app
+app.register_blueprint(auth_bp)
 app.register_blueprint(predict_bp)
 app.register_blueprint(logs_bp)
 app.register_blueprint(alerts_bp)
+app.register_blueprint(attack_chains_bp)
+seed_admin()
 
 @app.route("/")
 def home():
