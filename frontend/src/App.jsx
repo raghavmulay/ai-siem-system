@@ -131,7 +131,7 @@ function CustomTooltip({ active, payload, label }) {
 /* ─────────────────────────────────────────────
    MAIN DASHBOARD
 ───────────────────────────────────────────── */
-function Dashboard({ role = "admin", onLogout }) {
+function Dashboard() {
   const [logs, setLogs] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [attackChains, setAttackChains] = useState([]);
@@ -310,12 +310,6 @@ function Dashboard({ role = "admin", onLogout }) {
           </div>
         </div>
         <div className="header-right" style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-          <span style={{ background: "#1e293b", border: "1px solid #334155", borderRadius: "6px", padding: "6px 12px", color: "#6366f1", fontSize: "0.85rem", fontWeight: "700", textTransform: "uppercase", letterSpacing: "0.5px" }}>
-            👤 {role}
-          </span>
-          <button onClick={onLogout} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #334155", background: "transparent", color: "#94a3b8", cursor: "pointer", fontSize: "0.9rem", fontWeight: "600" }}>
-            Logout
-          </button>
           <button onClick={clearLogs} disabled={clearing} style={{ padding: "8px 16px", borderRadius: "8px", border: "1px solid #ef4444", background: "transparent", color: clearing ? "#64748b" : "#ef4444", cursor: clearing ? "not-allowed" : "pointer", fontSize: "0.9rem", fontWeight: "600" }}>
             {clearing ? "Clearing..." : "🗑 Clear Logs"}
           </button>
