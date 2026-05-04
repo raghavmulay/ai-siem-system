@@ -1,43 +1,52 @@
 import os
 import joblib
 import numpy as np
-from backend.models.load_models import anomaly_model, classifier
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../backend/models"))
+# Import loader function (not variables)
+from backend.models.load_models import load_models
 
+# Load models at startup
+anomaly_model, classifier = load_models()
+
+# Correct base path to models folder
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "../models"))
+
+# Load preprocessing objects
 try:
-    encoders       = joblib.load(os.path.join(BASE_DIR, "encoders.pkl"))
-    scaler         = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
-    columns        = joblib.load(os.path.join(BASE_DIR, "columns.pkl"))
-    label_encoder  = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+    encoders = joblib.load(os.path.join(BASE_DIR, "encoders.pkl"))
+    scaler = joblib.load(os.path.join(BASE_DIR, "scaler.pkl"))
+    columns = joblib.load(os.path.join(BASE_DIR, "columns.pkl"))
+    label_encoder = joblib.load(os.path.join(BASE_DIR, "label_encoder.pkl"))
+
 except FileNotFoundError as e:
-    # label_encoder.pkl may not exist yet — fall back gracefully
     if "label_encoder" in str(e):
         label_encoder = None
         print("Warning: label_encoder.pkl not found — attack_type will remain numeric")
     else:
         raise
+
 except Exception as e:
     print(f"Warning: Could not load preprocessing objects: {e}")
     encoders, scaler, columns, label_encoder = {}, None, [], None
 
 
 def _decode_attack_type(encoded_label: int) -> str:
-    """Decode numeric label → string class name using saved LabelEncoder."""
+    """Decode numeric label → string class name."""
     if label_encoder is not None:
         try:
             return str(label_encoder.inverse_transform([encoded_label])[0])
         except Exception:
             pass
-    # Fallback mapping for KDD-style datasets
-    _FALLBACK = {
+
+    # fallback mapping
+    fallback = {
         0: "Normal",
         1: "DoS",
         2: "Probe",
         3: "R2L",
         4: "U2R",
     }
-    return _FALLBACK.get(encoded_label, f"Type-{encoded_label}")
+    return fallback.get(encoded_label, f"Type-{encoded_label}")
 
 
 def preprocess_input(features: list) -> np.ndarray:
@@ -65,22 +74,24 @@ def preprocess_input(features: list) -> np.ndarray:
     if scaler is not None:
         data = np.array(processed).reshape(1, -1)
         return scaler.transform(data)
+
     return np.array(processed).reshape(1, -1)
 
 
 def predict(features: list) -> dict:
     data = preprocess_input(features)
 
-    # IsolationForest: -1 = anomaly, 1 = normal
-    raw_anomaly   = int(anomaly_model.predict(data)[0])
-    anomaly_bool  = raw_anomaly == -1                          # True when anomaly
+    # Isolation Forest: -1 anomaly, 1 normal
+    raw_anomaly = int(anomaly_model.predict(data)[0])
+    anomaly_bool = raw_anomaly == -1
 
-    raw_label     = int(classifier.predict(data)[0])
-    attack_type   = _decode_attack_type(raw_label)
-    confidence    = float(round(max(classifier.predict_proba(data)[0]), 4))
+    raw_label = int(classifier.predict(data)[0])
+    attack_type = _decode_attack_type(raw_label)
+
+    confidence = float(round(max(classifier.predict_proba(data)[0]), 4))
 
     return {
-        "anomaly":     anomaly_bool,       # bool
-        "attack_type": attack_type,        # decoded string
-        "confidence":  confidence,         # float 0-1
+        "anomaly": anomaly_bool,
+        "attack_type": attack_type,
+        "confidence": confidence,
     }
