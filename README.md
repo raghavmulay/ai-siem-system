@@ -84,9 +84,9 @@ npm run dev
 The dashboard will be available at `http://localhost:5173`.
 
 ### 3. Generate Sample Logs
-To test the system's detection capabilities, run the log generator from the root:
+The system automatically generates sample logs when the backend is started. To run specific or coordinated attack simulations manually:
 ```bash
-python log_generator.py
+python scripts/anomaly_generator.py
 ```
 
 ---
@@ -102,7 +102,8 @@ python log_generator.py
 - `backend/`: Flask server, routes, and services.
 - `frontend/`: React application (Vite-based).
 - `ml/`: Model training and data preprocessing scripts.
-- `log_generator.py`: Utility for simulating network events.
+- `scripts/`: Standalone utility and simulation scripts (log generators, encoders).
+- `docs/`: Project documentation and deployment guides.
 - `requirements.txt`: Python package dependencies.
 
 ---

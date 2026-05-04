@@ -1,22 +1,42 @@
+# Dependencies
 node_modules/
-
-# Python
 venv/
 .venv/
 env/
+lib/
+lib64/
+
+# Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
 *.pkl
+*.log
 
-# Env files
+# Environment files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
 
-# Build
+# Build and Distribution
 build/
 dist/
+out/
+.next/
+.vercel/
 
-# OS
+# IDE and OS
+.vscode/
+.idea/
 .DS_Store
 Thumbs.db
+*.swp
 
+# Project specific
 trace_output.txt
+ml/data/test.csv

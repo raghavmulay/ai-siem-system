@@ -71,10 +71,10 @@ function MetricCard({ icon, label, value, accent }) {
 }
 
 const SEVERITY_STYLES = {
-  CRITICAL: { bg: "rgba(220,38,38,0.25)",   color: "#fca5a5", border: "#dc2626" },
-  HIGH:     { bg: "rgba(239,68,68,0.2)",    color: "#fca5a5", border: "#ef4444" },
-  MEDIUM:   { bg: "rgba(245,158,11,0.2)",   color: "#fcd34d", border: "#f59e0b" },
-  LOW:      { bg: "rgba(34,197,94,0.15)",   color: "#86efac", border: "#22c55e" },
+  CRITICAL: { bg: "rgba(220,38,38,0.25)", color: "#fca5a5", border: "#dc2626" },
+  HIGH: { bg: "rgba(239,68,68,0.2)", color: "#fca5a5", border: "#ef4444" },
+  MEDIUM: { bg: "rgba(245,158,11,0.2)", color: "#fcd34d", border: "#f59e0b" },
+  LOW: { bg: "rgba(34,197,94,0.15)", color: "#86efac", border: "#22c55e" },
 };
 
 function AlertBadge({ severity }) {
@@ -143,13 +143,15 @@ function Dashboard() {
   const [errorMsg, setErrorMsg] = useState(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
+  const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
   const fetchData = async () => {
     setIsUpdating(true);
     try {
       const [logsRes, alertsRes, chainsRes] = await Promise.all([
-        fetch("http://127.0.0.1:5000/logs"),
-        fetch("http://127.0.0.1:5000/alerts"),
-        fetch("http://127.0.0.1:5000/attack-chains"),
+        fetch(`${API_URL}/logs`),
+        fetch(`${API_URL}/alerts`),
+        fetch(`${API_URL}/attack-chains`),
       ]);
 
       if (!logsRes.ok || !alertsRes.ok) throw new Error("API completely unresponsive.");
@@ -176,7 +178,7 @@ function Dashboard() {
     if (!window.confirm("Clear all logs and alerts?")) return;
     setClearing(true);
     try {
-      await fetch("http://127.0.0.1:5000/clear", { method: "DELETE" });
+      await fetch(`${API_URL}/clear`, { method: "DELETE" });
       setLogs([]);
       setAlerts([]);
       setAttackChains([]);
@@ -361,8 +363,8 @@ function Dashboard() {
                 const message = a.reason
                   || a.message
                   || (a.attack_type
-                      ? `${a.attack_type} detected (confidence: ${Number(a.confidence).toFixed(2)})`
-                      : "Anomaly detected");
+                    ? `${a.attack_type} detected (confidence: ${Number(a.confidence).toFixed(2)})`
+                    : "Anomaly detected");
 
                 return (
                   <div

@@ -3,6 +3,7 @@ anomaly_generator.py
 Sends deliberate attack sequences to trigger multi-step chain detection.
 Filters rows by attack type from test.csv and sends them in order.
 """
+import os
 import time
 import random
 import requests
@@ -10,7 +11,11 @@ import pandas as pd
 
 API_URL = "http://127.0.0.1:5000/predict"
 
-df = pd.read_csv("ml/data/test.csv")
+# Find project root relative to this script
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CSV_PATH = os.path.join(BASE_DIR, "ml", "data", "test.csv")
+
+df = pd.read_csv(CSV_PATH)
 labels = df.iloc[:, -1]
 features_df = df.iloc[:, :-1]
 

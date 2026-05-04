@@ -5,5 +5,10 @@ from pymongo import MongoClient
 load_dotenv()
 
 def get_db():
-    client = MongoClient(os.getenv("MONGO_URI", "mongodb://localhost:27017"))
+    mongo_uri = os.getenv("MONGO_URI")
+
+    if not mongo_uri:
+        raise ValueError("MONGO_URI is not set in environment variables")
+
+    client = MongoClient(mongo_uri)
     return client["siem"]

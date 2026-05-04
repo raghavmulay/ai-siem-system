@@ -19,7 +19,9 @@ import joblib
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
-BASE = os.path.join("backend", "models")
+# Find project root relative to this script
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE = os.path.join(BASE_DIR, "backend", "models")
 
 clf_path = os.path.join(BASE, "classifier.pkl")
 out_path = os.path.join(BASE, "label_encoder.pkl")
