@@ -10,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
+  Label,
 } from "recharts";
 
 /* ─────────────────────────────────────────────
@@ -412,7 +413,7 @@ function Dashboard() {
 
         {/* ── ATTACK DISTRIBUTION ── */}
         <section className="section" style={{ background: "#0f172a", border: "1px solid #1e293b", borderRadius: "12px", padding: "24px", display: "flex", flexDirection: "column" }}>
-          <h2 className="section-title" style={{ margin: "0 0 20px 0", color: "#f8fafc", fontSize: "1.3rem" }}>🎯 Attack Distribution</h2>
+          <h2 className="section-title" style={{ margin: "0 0 20px 0", color: "#f8fafc", fontSize: "1.3rem" }}>🎯 Real-Time Cyber Attack Distribution</h2>
           {attackChartData.length === 0 ? (
             <div className="empty-state" style={{ color: "#22c55e", textAlign: "center", padding: "40px 0", flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "12px" }}>
               <span style={{ fontSize: "3rem", filter: "drop-shadow(0 0 10px rgba(34,197,94,0.4))" }}>🛡️</span>
@@ -422,10 +423,14 @@ function Dashboard() {
           ) : (
             <div className="chart-container" style={{ width: "100%", height: "260px", flex: 1 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={attackChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <BarChart data={attackChartData} margin={{ top: 10, right: 10, left: 10, bottom: 25 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="type" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false} />
-                  <YAxis tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="type" tick={{ fill: "#94a3b8", fontSize: 12, fontWeight: 500 }} axisLine={false} tickLine={false}>
+                    <Label value="Attack Type" offset={-15} position="insideBottom" fill="#64748b" style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }} />
+                  </XAxis>
+                  <YAxis domain={[0, 'dataMax + 5']} tick={{ fill: "#94a3b8", fontSize: 12 }} axisLine={false} tickLine={false}>
+                    <Label value="Number of Events" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: "#64748b", fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }} />
+                  </YAxis>
                   <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(255,255,255,0.05)" }} />
                   <Bar dataKey="count" fill="#38bdf8" radius={[6, 6, 0, 0]} />
                 </BarChart>
