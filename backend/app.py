@@ -14,7 +14,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Start background log generator
-threading.Thread(target=start_log_generator, kwargs={"interval": 3}, daemon=True).start()
+threading.Thread(target=start_log_generator, kwargs={"interval": 2}, daemon=True).start()
 
 # DB connection + index
 try:
