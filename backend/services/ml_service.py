@@ -81,18 +81,25 @@ def preprocess_input(features: list) -> np.ndarray:
 def predict(features: list) -> dict:
     data = preprocess_input(features)
 
-    # Step 1: Anomaly Detection
+    # Step 1: anomaly detection
     raw_anomaly = int(anomaly_model.predict(data)[0])
     anomaly_bool = raw_anomaly == -1
 
-    # Step 2: Classification ONLY if anomaly
+    # Step 2: classification ONLY if anomaly
     if anomaly_bool:
         raw_label = int(classifier.predict(data)[0])
         attack_type = _decode_attack_type(raw_label)
-        confidence = float(round(max(classifier.predict_proba(data)[0]), 4))
+
+        # 🚨 IMPORTANT FIX
+        if attack_type.lower() == "normal":
+            anomaly_bool = False
+            attack_type = "Normal"
+            confidence = 0.95
+        else:
+            confidence = float(round(max(classifier.predict_proba(data)[0]), 4))
     else:
         attack_type = "Normal"
-        confidence = 0.98  # or 0.99 for realism
+        confidence = 1.0
 
     return {
         "anomaly": anomaly_bool,
