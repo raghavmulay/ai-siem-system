@@ -1,14 +1,23 @@
-import pandas as pd
-from ml.preprocessing import preprocess
-from ml.train_model import train_models
+"""
+ml/main.py
+----------
+Convenience entry point.  All training logic lives in ml/train_model.py.
 
-train_df = pd.read_csv("ml/data/train.csv")
-test_df = pd.read_csv("ml/data/test.csv")
+Previous issue: this file called train_models(X_train, y_train, X_test, y_test)
+with 4 positional arguments, but the function required 7.  That caused an
+immediate TypeError on every run.
 
-X_train, X_test, y_train, y_test = preprocess(train_df, test_df)
+Fix: ml/train_model.py is now a self-contained script with its own __main__
+block.  This file simply imports and runs it so both entry points work:
 
-train_models(X_train, y_train, X_test, y_test)
+    python ml/main.py          # via this file
+    python ml/train_model.py   # directly
+    python -m ml.train_model   # as a module
+"""
 
-print("Testing Complete 🚀")
+import runpy
+import os
 
-print("Feature count:", X_train.shape[1])
+if __name__ == "__main__":
+    script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "train_model.py")
+    runpy.run_path(script, run_name="__main__")

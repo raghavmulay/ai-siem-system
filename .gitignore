@@ -40,3 +40,16 @@ Thumbs.db
 # Project specific
 trace_output.txt
 ml/data/test.csv
+
+# Generated ML artifacts (large binary files — regenerate with: python ml/train_model.py)
+backend/models/*.pkl
+backend/models/training_meta.json
+
+# Generated evaluation reports (regenerate with training script)
+ml/reports/
+
+# Temporary audit/debug scripts (not source code)
+ml/_audit.py
+ml/_audit2.py
+
+# NOTE: ml/*.py source files are intentionally NOT ignored
