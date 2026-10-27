@@ -36,6 +36,13 @@ import joblib
 import numpy as np
 import pandas as pd
 
+try:
+    from backend.services.autoencoder_service import predict_autoencoder
+except Exception as exc:
+    predict_autoencoder = None
+    print(f"Warning: autoencoder unavailable: {exc}")
+
+
 from backend.models.load_models import load_models
 
 # ---------------------------------------------------------------------------
@@ -133,42 +140,36 @@ def preprocess_input(features: list) -> np.ndarray:
 # Public API — response contract unchanged
 # ---------------------------------------------------------------------------
 def predict(features: list) -> dict:
-    """
-    Detection logic (fixed):
-      - RandomForest always runs and is the primary classifier.
-      - IsolationForest runs in parallel as a supplementary anomaly signal.
-      - anomaly=True when RF predicts a non-normal class OR IF flags an anomaly.
-        An IF inlier prediction can no longer suppress an RF attack prediction.
-
-    Returns:
-        {
-            "anomaly":     bool   — True if RF predicts attack OR IF flags anomaly
-            "attack_type": str    — decoded class name from RandomForest
-            "confidence":  float  — max predict_proba value (uncalibrated)
-        }
-    """
+    """Combine RF classification with IF and autoencoder anomaly signals."""
     data = preprocess_input(features)
 
-    # Step 1: RandomForest classification (always runs)
-    raw_label   = int(classifier.predict(data)[0])
+    # Random Forest remains the primary attack classifier.
+    raw_label = int(classifier.predict(data)[0])
     attack_type = _decode_attack_type(raw_label)
-    confidence  = float(round(max(classifier.predict_proba(data)[0]), 4))
+    confidence = float(round(max(classifier.predict_proba(data)[0]), 4))
 
-    # Step 2: IsolationForest as a parallel anomaly signal
-    raw_anomaly  = int(anomaly_model.predict(data)[0])
-    if_anomaly   = raw_anomaly == -1   # IsolationForest: -1=anomaly, 1=inlier
+    # Isolation Forest supplementary signal.
+    raw_anomaly = int(anomaly_model.predict(data)[0])
+    if_anomaly = raw_anomaly == -1
 
-    # anomaly=True if RF says attack OR IF flags anomaly
-    # An IF inlier cannot suppress an RF attack prediction
     rf_is_attack = attack_type.lower() != "normal"
-    anomaly_bool = rf_is_attack or if_anomaly
 
-    # Normalise attack_type casing: "normal" → "Normal" for consistency
+    # Autoencoder supplementary signal; never changes attack_type.
+    ae_anomaly = False
+    if predict_autoencoder is not None:
+        try:
+            ae_result = predict_autoencoder(features)
+            ae_anomaly = bool(ae_result.get("anomaly", False))
+        except Exception as exc:
+            print(f"Warning: autoencoder prediction failed: {exc}")
+
+    anomaly_bool = rf_is_attack or if_anomaly or ae_anomaly
+
     if not rf_is_attack:
         attack_type = "Normal"
 
     return {
-        "anomaly":     anomaly_bool,
+        "anomaly": anomaly_bool,
         "attack_type": attack_type,
-        "confidence":  confidence,
+        "confidence": confidence,
     }
