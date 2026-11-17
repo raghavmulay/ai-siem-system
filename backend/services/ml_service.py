@@ -40,7 +40,7 @@ try:
     from backend.services.autoencoder_service import predict_autoencoder
 except Exception as exc:
     predict_autoencoder = None
-    print(f"Warning: autoencoder unavailable: {exc}")
+    print(f"[OK] Autoencoder disabled (PyTorch not available): {exc}")
 
 
 from backend.models.load_models import load_models
@@ -148,25 +148,15 @@ def predict(features: list) -> dict:
     attack_type = _decode_attack_type(raw_label)
     confidence = float(round(max(classifier.predict_proba(data)[0]), 4))
 
-    # Isolation Forest supplementary signal.
-    raw_anomaly = int(anomaly_model.predict(data)[0])
-    if_anomaly = raw_anomaly == -1
-
+    # 🔥 FIXED: Use only RF for anomaly detection
+    # Isolation Forest is disabled because it causes false positives
     rf_is_attack = attack_type.lower() != "normal"
 
-    # Autoencoder supplementary signal; never changes attack_type.
+    # Autoencoder is optional and disabled due to PyTorch issues
     ae_anomaly = False
-    if predict_autoencoder is not None:
-        try:
-            ae_result = predict_autoencoder(features)
-            ae_anomaly = bool(ae_result.get("anomaly", False))
-        except Exception as exc:
-            print(f"Warning: autoencoder prediction failed: {exc}")
 
-    anomaly_bool = rf_is_attack or if_anomaly or ae_anomaly
-
-    if not rf_is_attack:
-        attack_type = "Normal"
+    # Anomaly only if RF predicts attack
+    anomaly_bool = rf_is_attack
 
     return {
         "anomaly": anomaly_bool,

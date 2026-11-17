@@ -1,10 +1,10 @@
 from flask import Flask
 from flask_cors import CORS
 from backend.routes.predict import predict_bp
-from backend.config.db_config import get_db
 from backend.routes.logs import logs_bp
 from backend.routes.alerts import alerts_bp
 from backend.routes.attack_chains import attack_chains_bp
+from backend.config.db_config import get_db
 
 import os
 import threading
@@ -13,17 +13,15 @@ from scripts.log_generator import start_log_generator
 app = Flask(__name__)
 CORS(app)
 
-# Start background log generator
-threading.Thread(target=start_log_generator, kwargs={"interval": 2}, daemon=True).start()
-
-# DB connection + index
+# Try MongoDB connection, but don't fail if it's unavailable
 try:
     db = get_db()
     db.command("ping")
     db["logs"].create_index([("timestamp", -1), ("attack_type", 1)], background=True)
-    print("MongoDB connected & indexes ensured")
+    print("✅ MongoDB connected & indexes ensured")
 except Exception as e:
-    print(f"MongoDB connection failed: {e}")
+    print(f"⚠️ MongoDB not available (using in-memory mode): {e}")
+    db = None
 
 # Routes
 app.register_blueprint(predict_bp)

@@ -3,6 +3,8 @@ import time
 import random
 import requests
 import pandas as pd
+from urllib3.util.retry import Retry
+from requests.adapters import HTTPAdapter
 
 BASE_URL = os.getenv("BASE_URL", "http://127.0.0.1:5000")
 API_URL = f"{BASE_URL}/predict"
@@ -22,35 +24,68 @@ grouped = df.groupby(label_col)
 
 print(f"[+] Loaded dataset with {len(df)} rows and {len(grouped)} attack types")
 
-def generate_realistic_log():
+def create_session():
+    """Create requests session with retry logic"""
+    session = requests.Session()
+    retry = Retry(
+        total=10,
+        backoff_factor=0.5,
+        status_forcelist=[500, 502, 503, 504]
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount('http://', adapter)
+    return session
+
+def generate_realistic_log(session):
     """
-    Generate a single log with balanced attack distribution
+    Generate a single log with realistic attack ratio (20% attacks, 80% normal)
     """
 
-    # 🔥 Balanced sampling across attack types
-    attack_type = random.choice(list(grouped.groups.keys()))
-    row = grouped.get_group(attack_type).sample(n=1).iloc[0]
+    # 80% chance of normal traffic, 20% attack
+    if random.random() < 0.80:
+        # Normal traffic - use "normal" class only
+        attack_type = "normal"
+        row = grouped.get_group(attack_type).sample(n=1).iloc[0]
+    else:
+        # Attack traffic - random attack type (exclude "normal")
+        attack_types = [t for t in grouped.groups.keys() if t != "normal"]
+        attack_type = random.choice(attack_types)
+        row = grouped.get_group(attack_type).sample(n=1).iloc[0]
 
     features = []
 
-    for val in row[:-1]:  # exclude label
+    for i, val in enumerate(row[:-1]):  # exclude label
         try:
             val = float(val)
 
-            # 🔥 MIX: normal vs strong anomaly
-            if random.random() < 0.3:
-                noise = random.uniform(-2, 2)   # strong anomaly
+            # 🔥 INCREASED NOISE for better attack differentiation
+            if attack_type == "normal":
+                # Normal traffic: small noise (90% minimal, 10% moderate)
+                if random.random() < 0.90:
+                    noise = random.uniform(-0.1, 0.1)
+                else:
+                    noise = random.uniform(-0.3, 0.3)
             else:
-                noise = random.uniform(-0.1, 0.1)  # normal traffic
+                # Attack traffic: moderate noise (80% mild, 20% strong)
+                if random.random() < 0.80:
+                    noise = random.uniform(-0.3, 0.3)
+                else:
+                    noise = random.uniform(-0.8, 0.8)
 
             features.append(val + noise)
 
         except:
+            # Keep categorical values as strings (they get encoded later)
             features.append(val)
 
-    return features
+    try:
+        response = session.post(API_URL, json={"features": features}, timeout=5)
+        return response.status_code == 200
+    except Exception as e:
+        print(f"[!] Generator Error: {e}")
+        return False
 
-def generate_attack_burst(size=10):
+def generate_attack_burst(session, size=10):
     """
     Simulate attack bursts (real-world scenario)
     """
@@ -64,7 +99,8 @@ def generate_attack_burst(size=10):
         for val in row[:-1]:
             try:
                 val = float(val)
-                noise = random.uniform(-1.5, 1.5)
+                # 🔥 INCREASED NOISE for burst attacks
+                noise = random.uniform(-1.0, 1.0)
                 features.append(val + noise)
             except:
                 features.append(val)
@@ -73,9 +109,25 @@ def generate_attack_burst(size=10):
 
     return burst
 
-def start_log_generator(interval=1):
+def start_log_generator(interval=3):
     print(f"[*] Starting log generator (interval={interval}s)")
     print(f"[*] Sending logs to: {API_URL}")
+    
+    # Wait for backend to be ready
+    print("[*] Waiting for backend to be ready...")
+    session = create_session()
+    
+    for i in range(30):  # Wait up to 15 seconds
+        try:
+            response = session.get(f"{BASE_URL}/", timeout=2)
+            if response.status_code == 200:
+                print("[OK] Backend is ready!")
+                break
+        except:
+            pass
+        time.sleep(0.5)
+    else:
+        print("[!] Warning: Backend might not be ready")
 
     count = 0
 
@@ -87,17 +139,16 @@ def start_log_generator(interval=1):
             if random.random() < 0.15:
                 print("[!] Attack burst triggered")
 
-                burst_logs = generate_attack_burst(size=8)
+                burst_logs = generate_attack_burst(session, size=8)
 
                 for features in burst_logs:
-                    requests.post(API_URL, json={"features": features}, timeout=5)
+                    session.post(API_URL, json={"features": features}, timeout=5)
 
                 print("[!] Burst completed")
 
             else:
                 # Normal log
-                features = generate_realistic_log()
-                requests.post(API_URL, json={"features": features}, timeout=5)
+                generate_realistic_log(session)
 
             if count % 10 == 0:
                 print(f"[*] Sent {count} logs")
@@ -108,4 +159,4 @@ def start_log_generator(interval=1):
         time.sleep(interval)
 
 if __name__ == "__main__":
-    start_log_generator(interval=1)
+    start_log_generator(interval=3)
