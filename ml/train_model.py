@@ -38,6 +38,56 @@ TARGET_COL  = "labels"
 # select_dtypes(include="object") without the deprecation workaround)
 CAT_COLS = ["protocol_type", "service", "flag"]
 
+# Filter to ONLY classes present in both train and test (no unseen attacks)
+def get_common_classes(train_df, test_df):
+    """Get classes present in both train and test sets"""
+    train_classes = set(train_df[TARGET_COL].unique())
+    test_classes = set(test_df[TARGET_COL].unique())
+    common = sorted(train_classes & test_classes)
+    print(f"Classes in both train and test: {len(common)}")
+    print(f"  {common}")
+    return common
+
+def balance_dataset(df, target_col, target_ratio=0.5):
+    """
+    Balance dataset to target_ratio of attack samples.
+    target_ratio=0.5 means 50% normal, 50% attacks.
+    """
+    print(f"\nBalancing dataset to {target_ratio*100}% attack ratio...")
+    
+    normal_df = df[df[target_col] == "normal"].copy()
+    attack_df = df[df[target_col] != "normal"].copy()
+    
+    normal_count = len(normal_df)
+    attack_count = len(attack_df)
+    
+    print(f"  Original: normal={normal_count:,}, attacks={attack_count:,}")
+    
+    # Calculate target attack count
+    if target_ratio > 0.5:
+        target_attacks = int(normal_count * target_ratio / (1 - target_ratio))
+    else:
+        target_attacks = int(normal_count * target_ratio / (1 - target_ratio))
+    
+    # Sample attacks or oversample if needed
+    if attack_count > target_attacks:
+        attack_df = attack_df.sample(n=target_attacks, random_state=RANDOM_SEED)
+    elif attack_count < target_attacks:
+        # Oversample attacks
+        repeat_times = target_attacks // attack_count
+        extra_samples = target_attacks % attack_count
+        attack_df = pd.concat([attack_df] * repeat_times, ignore_index=True)
+        if extra_samples > 0:
+            extra = attack_df.sample(n=extra_samples, random_state=RANDOM_SEED)
+            attack_df = pd.concat([attack_df, extra], ignore_index=True)
+    
+    balanced = pd.concat([normal_df, attack_df], ignore_index=True).sample(frac=1, random_state=RANDOM_SEED)
+    
+    print(f"  Balanced: normal={len(normal_df):,}, attacks={len(attack_df):,}")
+    print(f"  Total: {len(balanced):,} rows")
+    
+    return balanced
+
 
 # ---------------------------------------------------------------------------
 # 1. Load & audit datasets
@@ -481,7 +531,21 @@ def smoke_test(train_df):
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     train_df, test_df, unseen_classes = load_and_audit()
-
+    
+    # Get only classes present in both train and test
+    common_classes = get_common_classes(train_df, test_df)
+    
+    # Filter train and test to only common classes
+    train_df = train_df[train_df[TARGET_COL].isin(common_classes)].copy()
+    test_df = test_df[test_df[TARGET_COL].isin(common_classes)].copy()
+    
+    print(f"\nAfter filtering to common classes:")
+    print(f"  Train: {len(train_df):,} rows")
+    print(f"  Test: {len(test_df):,} rows")
+    
+    # Balance training data to 50% normal, 50% attacks
+    train_df = balance_dataset(train_df, TARGET_COL, target_ratio=0.5)
+    
     X_train, y_train, ord_enc, scaler, label_enc, feature_cols = \
         build_preprocessors(train_df)
 

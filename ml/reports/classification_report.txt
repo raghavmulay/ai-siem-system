@@ -1,0 +1,48 @@
+=== Classification Report (known classes, held-out test.csv) ===
+
+                 precision    recall  f1-score   support
+
+           back       1.00      0.99      0.99       227
+buffer_overflow       1.00      0.35      0.52        17
+      ftp_write       1.00      0.50      0.67         2
+   guess_passwd       1.00      0.02      0.04       411
+           imap       1.00      0.50      0.67         2
+        ipsweep       1.00      1.00      1.00       479
+           land       1.00      0.50      0.67         2
+     loadmodule       1.00      0.75      0.86         4
+       multihop       1.00      0.11      0.20         9
+        neptune       1.00      1.00      1.00      6654
+           nmap       1.00      1.00      1.00       206
+         normal       0.94      0.99      0.97     11245
+           perl       0.00      0.00      0.00         1
+            phf       1.00      1.00      1.00         1
+            pod       0.87      0.97      0.92        35
+      portsweep       0.97      1.00      0.98       371
+        rootkit       0.00      0.00      0.00         4
+          satan       0.93      1.00      0.97       698
+          smurf       0.99      1.00      1.00       540
+       teardrop       0.89      1.00      0.94       104
+    warezclient       0.97      0.98      0.98       107
+    warezmaster       1.00      0.01      0.02       279
+
+       accuracy                           0.96     21398
+      macro avg       0.89      0.67      0.70     21398
+   weighted avg       0.96      0.96      0.95     21398
+
+
+=== Summary Metrics ===
+accuracy: 0.9627
+macro_precision: 0.8893
+macro_recall: 0.6666
+macro_f1: 0.6988
+weighted_f1: 0.9475
+binary_fpr: 0.0071
+binary_tpr: 0.93
+iso_fpr: 0.0169
+iso_tpr: 0.0822
+iso_f1: 0.1494
+known_test_rows: 21398
+unseen_test_rows: 0
+unseen_classes: ['apache2', 'httptunnel', 'mailbomb', 'mscan', 'named', 'processtable', 'ps', 'saint', 'sendmail', 'snmpgetattack', 'snmpguess', 'xlock', 'xsnoop', 'xterm']
+overlap_rows: 15791
+overlap_note: 15791 test rows are exact duplicates of training rows (all 42 columns including label). Metrics are optimistic.

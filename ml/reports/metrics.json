@@ -1,0 +1,32 @@
+{
+  "accuracy": 0.9627,
+  "macro_precision": 0.8893,
+  "macro_recall": 0.6666,
+  "macro_f1": 0.6988,
+  "weighted_f1": 0.9475,
+  "binary_fpr": 0.0071,
+  "binary_tpr": 0.93,
+  "iso_fpr": 0.0169,
+  "iso_tpr": 0.0822,
+  "iso_f1": 0.1494,
+  "known_test_rows": 21398,
+  "unseen_test_rows": 0,
+  "unseen_classes": [
+    "apache2",
+    "httptunnel",
+    "mailbomb",
+    "mscan",
+    "named",
+    "processtable",
+    "ps",
+    "saint",
+    "sendmail",
+    "snmpgetattack",
+    "snmpguess",
+    "xlock",
+    "xsnoop",
+    "xterm"
+  ],
+  "overlap_rows": 15791,
+  "overlap_note": "15791 test rows are exact duplicates of training rows (all 42 columns including label). Metrics are optimistic."
+}

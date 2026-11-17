@@ -2,10 +2,11 @@ services:
   - type: web
     name: ai-siem-backend
     runtime: python
+    plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn "backend.app:app"
+    startCommand: gunicorn backend.app:app --workers 1 --threads 2 --timeout 120
     envVars:
-      - key: JWT_SECRET_KEY
-        generateValue: true
       - key: MONGO_URI
         sync: false
+      - key: PYTHON_VERSION
+        value: 3.12.7

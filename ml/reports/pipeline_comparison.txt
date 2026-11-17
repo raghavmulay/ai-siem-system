@@ -1,0 +1,118 @@
+PIPELINE COMPARISON REPORT
+======================================================================
+
+Metric definitions
+  macro F1        : unweighted mean per-class F1 (multiclass)
+  attack recall   : TP / (TP + FN) — fraction of attacks caught
+  FPR             : FP / (FP + TN) — fraction of normals mislabelled
+  latency         : sampled single-record inference time (ms),
+                    n=150 rows after 10-call warm-up
+
+Validation note: test set used read-only; no tuning performed.
+
+A. RF-only
+  macro_f1            : 0.6838
+  attack_recall (TPR) : 0.9297
+  FPR                 : 0.0069
+  TP / FP / TN / FN   : 9439 / 78 / 11167 / 714
+  latency_median_ms   : 64.952
+  latency_p95_ms      : 84.9955
+  latency_sample_n    : 150
+  per_class_recall:
+    back                : 0.9956
+    buffer_overflow     : 0.3529
+    ftp_write           : 0.0
+    guess_passwd        : 0.0195
+    imap                : 0.5
+    ipsweep             : 0.9979
+    land                : 1.0
+    loadmodule          : 0.75
+    multihop            : 0.1111
+    neptune             : 0.9997
+    nmap                : 0.9903
+    normal              : 0.9931
+    perl                : 0.0
+    phf                 : 1.0
+    pod                 : 0.9714
+    portsweep           : 1.0
+    rootkit             : 0.0
+    satan               : 0.9971
+    smurf               : 1.0
+    teardrop            : 1.0
+    warezclient         : 0.9626
+    warezmaster         : 0.0108
+
+B. IF-gate (old/buggy)
+  macro_f1            : 0.2527
+  attack_recall (TPR) : 0.0781
+  FPR                 : 0.0009
+  TP / FP / TN / FN   : 793 / 10 / 11235 / 9360
+  latency_median_ms   : 10.9195
+  latency_p95_ms      : 70.0075
+  latency_sample_n    : 150
+  per_class_recall:
+    back                : 0.1322
+    buffer_overflow     : 0.1176
+    ftp_write           : 0.0
+    guess_passwd        : 0.017
+    imap                : 0.5
+    ipsweep             : 0.1169
+    land                : 1.0
+    loadmodule          : 0.25
+    multihop            : 0.0
+    neptune             : 0.0044
+    nmap                : 0.199
+    normal              : 0.9991
+    perl                : 0.0
+    phf                 : 0.0
+    pod                 : 0.0286
+    portsweep           : 0.469
+    rootkit             : 0.0
+    satan               : 0.606
+    smurf               : 0.0148
+    teardrop            : 0.1346
+    warezclient         : 0.028
+    warezmaster         : 0.0
+
+C. IF-only
+  macro_f1            : N/A (IF cannot classify)
+  attack_recall (TPR) : 0.0804
+  FPR                 : 0.0199
+  TP / FP / TN / FN   : 816 / 224 / 11021 / 9337
+  latency_median_ms   : 9.0959
+  latency_p95_ms      : 11.5833
+  latency_sample_n    : 150
+
+D. RF+IF-parallel (fixed)
+  macro_f1            : 0.6838
+  attack_recall (TPR) : 0.9319
+  FPR                 : 0.026
+  TP / FP / TN / FN   : 9462 / 292 / 10953 / 691
+  latency_median_ms   : 80.4632
+  latency_p95_ms      : 138.1751
+  latency_sample_n    : 150
+  per_class_recall:
+    back                : 0.9956
+    buffer_overflow     : 0.3529
+    ftp_write           : 0.0
+    guess_passwd        : 0.0195
+    imap                : 0.5
+    ipsweep             : 0.9979
+    land                : 1.0
+    loadmodule          : 0.75
+    multihop            : 0.1111
+    neptune             : 0.9997
+    nmap                : 0.9903
+    normal              : 0.9931
+    perl                : 0.0
+    phf                 : 1.0
+    pod                 : 0.9714
+    portsweep           : 1.0
+    rootkit             : 0.0
+    satan               : 0.9971
+    smurf               : 1.0
+    teardrop            : 1.0
+    warezclient         : 0.9626
+    warezmaster         : 0.0108
+
+Total runtime: 30.9s

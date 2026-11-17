@@ -1,6 +1,8 @@
 # Dependencies
 node_modules/
 venv/
+venv_clean/
+venv_final/
 .venv/
 env/
 lib/
@@ -41,12 +43,11 @@ Thumbs.db
 trace_output.txt
 ml/data/test.csv
 
-# Generated ML artifacts (large binary files — regenerate with: python ml/train_model.py)
-backend/models/*.pkl
-backend/models/training_meta.json
+# ML reports (regenerate with training script)
+# ml/reports/   ← intentionally kept so metrics.json is committed
 
-# Generated evaluation reports (regenerate with training script)
-ml/reports/
+# NOTE: backend/models/*.pkl are intentionally committed for deployment
+# Without them Render cannot run the app
 
 # Temporary audit/debug scripts (not source code)
 ml/_audit.py
